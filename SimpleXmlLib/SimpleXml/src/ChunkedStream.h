@@ -99,6 +99,9 @@ namespace SimpleXml {
 		inline const char* end() { return __endpos; }
 		inline size_t available() { return __endpos - __curpos; }
 
+		// TODO: Bounds checking vulnerability - memcpy without target buffer size validation
+		// memcpy uses len without validating it against actual target buffer size.
+		// Should validate len against target buffer capacity to prevent buffer overflow.
 		inline size_t read(char* target, size_t len) {
 			if (len < available()) {
 				if (target != NULL)

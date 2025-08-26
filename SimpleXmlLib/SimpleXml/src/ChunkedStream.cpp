@@ -135,6 +135,9 @@ namespace SimpleXml {
 		return 0;
 	}
 
+	// TODO: Bounds checking vulnerability - memcpy without size validation
+	// memcpy uses copysize without validating it against available buffer space.
+	// Should validate copysize against actual target buffer size to prevent buffer overflow.
 	size_t ChunkedStream::readInternal(char* target, size_t len) {
 		size_t copied = 0;
 		while (len > 0) {

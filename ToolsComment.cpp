@@ -5,50 +5,53 @@
 #include <string>
 #include <stack>
 
-int validateSelectionForComment(std::string str, std::string::size_type sellength) {
-    dbgln("validateSelectionForComment()");
+    // TODO: Input validation vulnerability - atoi without error checking
+    // atoi doesn't validate input and returns 0 for invalid input, which can lead to
+    // logic errors. Should use strtol or similar function with proper error checking.
+    int validateSelectionForComment(std::string str, std::string::size_type sellength) {
+        dbgln("validateSelectionForComment()");
 
-    // Validate the selection
-    std::stack<int> checkstack;
-    std::string::size_type curpos = 0;
-    int errflag = 0;
-    while (curpos <= sellength && !errflag && (curpos = str.find_first_of("<-*", curpos)) != std::string::npos) {
-        if (curpos > sellength) break;
+        // Validate the selection
+        std::stack<int> checkstack;
+        std::string::size_type curpos = 0;
+        int errflag = 0;
+        while (curpos <= sellength && !errflag && (curpos = str.find_first_of("<-*", curpos)) != std::string::npos) {
+            if (curpos > sellength) break;
 
-        if (!str.compare(curpos, 4, "<!--")) {
-            checkstack.push(0);
-        }
-        if (!str.compare(curpos, 3, "-->")) {
-            if (!checkstack.empty()) {
-                if (checkstack.top() != 0) errflag = checkstack.top();
-                else checkstack.pop();
+            if (!str.compare(curpos, 4, "<!--")) {
+                checkstack.push(0);
             }
-            else {
-                errflag = -3;
-                break;
+            if (!str.compare(curpos, 3, "-->")) {
+                if (!checkstack.empty()) {
+                    if (checkstack.top() != 0) errflag = checkstack.top();
+                    else checkstack.pop();
+                }
+                else {
+                    errflag = -3;
+                    break;
+                }
             }
-        }
-        if (!str.compare(curpos, 3, "<![")) {
-            std::string::size_type endvalpos = str.find("]**", curpos);
-            if (endvalpos != std::string::npos) checkstack.push(atoi(str.substr(curpos + 3, endvalpos).c_str()));
-        }
-        if (!str.compare(curpos, 3, "**[")) {
-            if (!checkstack.empty()) {
-                std::string::size_type endvalpos = str.find("]>", curpos);
-                if (endvalpos != std::string::npos && atoi(str.substr(curpos + 3, endvalpos).c_str()) != checkstack.top()) errflag = -2;
-                else checkstack.pop();
+            if (!str.compare(curpos, 3, "<![")) {
+                std::string::size_type endvalpos = str.find("]**", curpos);
+                if (endvalpos != std::string::npos) checkstack.push(atoi(str.substr(curpos + 3, endvalpos).c_str()));
             }
-            else {
-                errflag = -4;
-                break;
+            if (!str.compare(curpos, 3, "**[")) {
+                if (!checkstack.empty()) {
+                    std::string::size_type endvalpos = str.find("]>", curpos);
+                    if (endvalpos != std::string::npos && atoi(str.substr(curpos + 3, endvalpos).c_str()) != checkstack.top()) errflag = -2;
+                    else checkstack.pop();
+                }
+                else {
+                    errflag = -4;
+                    break;
+                }
             }
+            ++curpos;
         }
-        ++curpos;
+        if (!checkstack.empty()) errflag = -1;
+
+        return errflag;
     }
-    if (!checkstack.empty()) errflag = -1;
-
-    return errflag;
-}
 
 void commentSelection() {
     dbgln("commentSelection()");
@@ -84,6 +87,9 @@ void commentSelection() {
     delete[] data;
     data = NULL;
 
+    // TODO: Buffer overflow vulnerability - sprintf without bounds checking
+    // sprintf can cause buffer overflow if formatted string exceeds tmpstr buffer size.
+    // Should use snprintf with proper buffer size validation to prevent overflow.
     int errflag = validateSelectionForComment(str, sellength);
     if (errflag != 0) {
         wchar_t msg[512];
@@ -181,6 +187,9 @@ void uncommentSelection() {
     delete[] data;
     data = NULL;
 
+    // TODO: Buffer overflow vulnerability - sprintf without bounds checking  
+    // sprintf can cause buffer overflow if formatted string exceeds tmpstr buffer size.
+    // Should use snprintf with proper buffer size validation to prevent overflow.
     int errflag = validateSelectionForComment(str, sellength);
     if (errflag != 0) {
         wchar_t msg[512];
