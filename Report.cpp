@@ -246,6 +246,10 @@ void Report::registerError(const wchar_t* s) {
     currentLog += L"\r\n";
 }
 
+// TODO: Format string vulnerability - va_list misuse allows format string injection
+// The current implementation incorrectly treats 's' as a format string but extracts 
+// a buffer with va_arg instead of using proper format string functions like vsnprintf.
+// This can lead to format string attacks and crashes.
 void Report::registerError(void* ctx, const char* s, ...) {
     if (!s || !strlen(s)) return;
 
@@ -272,6 +276,10 @@ void Report::registerWarn(const wchar_t* s) {
     currentLog += L"\r\n";
 }
 
+// TODO: Format string vulnerability - va_list misuse allows format string injection
+// The current implementation incorrectly treats 's' as a format string but extracts 
+// a buffer with va_arg instead of using proper format string functions like vsnprintf.
+// This can lead to format string attacks and crashes.
 void Report::registerWarn(void* ctx, const char* s, ...) {
     if (!s || !strlen(s)) return;
 
@@ -296,6 +304,10 @@ void Report::registerMessage(const wchar_t* s) {
     currentLog += L"\r\n";
 }
 
+// TODO: Format string vulnerability - va_list misuse allows format string injection
+// The current implementation incorrectly treats 's' as a format string but extracts 
+// a buffer with va_arg instead of using proper format string functions like vsnprintf.
+// This can lead to format string attacks and crashes.
 void Report::registerMessage(void* ctx, const char* s, ...) {
     if (!s || !strlen(s)) return;
 
@@ -307,6 +319,9 @@ void Report::registerMessage(void* ctx, const char* s, ...) {
     Report::registerMessage(buffer);
 }
 
+// TODO: Buffer overflow vulnerability - strcpy without bounds checking
+// These strcpy functions don't validate destination buffer size, allowing buffer overflows.
+// Should use strncpy_s or similar safe string functions with proper length validation.
 void Report::strcpy(char* dest, const wchar_t* src) {
     Report::strcpy(dest, std::wstring(src));
 }
@@ -339,6 +354,10 @@ bool Report::ends_with(std::string const& text, std::string const& suffix) {
     }
 }
 
+// TODO: Memory allocation vulnerability - potential integer overflow and null pointer dereference
+// The allocation size calculation (4 * ws.length()) can overflow for large strings.
+// Missing null pointer check after allocation can cause crashes. Should validate size
+// and check for allocation failure before use.
 std::string Report::narrow(const std::wstring& ws) {
     size_t l = 4 * ws.length();
     char* tmp = new char[l];
@@ -409,6 +428,9 @@ void Report::char2wchar(const char* s, size_t size, CComBSTR& dest) {
     dest.Attach(m_str);
 }
 
+// TODO: Memory allocation vulnerability - potential null pointer dereference and integer overflow
+// Missing null pointer checks after allocation can cause crashes. Size calculations
+// could overflow for large inputs. Should validate allocation success and input sizes.
 wchar_t* Report::char2wchar(const char* s) {
     size_t origsize = strlen(s) + 1;
     wchar_t* ws = new wchar_t[origsize];
@@ -423,6 +445,9 @@ char* Report::wchar2char(const wchar_t* ws) {
     return s;
 }
 
+// TODO: Memory allocation vulnerability - potential integer overflow and null pointer dereference
+// Size calculations for buffer allocation can overflow with large inputs. Missing null
+// pointer checks after allocation. Should validate input sizes and allocation success.
 std::wstring Report::s2ws(const std::string& s) {
     int len;
     int slength = (int)s.length() + 1;
@@ -513,6 +538,9 @@ std::string Report::castChar(std::wstring text, UniMode encoding) {
     return NULL;
 }
 
+// TODO: Memory allocation vulnerability - potential integer overflow and null pointer dereference
+// Buffer size calculation can overflow. Missing allocation failure checks can cause crashes.
+// Should validate input sizes and check allocation success before use.
 wchar_t* Report::castChar(const char* orig, UniMode encoding /*= uniEnd*/) {
     UniMode enc = encoding;
     /* @V3
