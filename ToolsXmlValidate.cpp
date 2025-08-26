@@ -32,6 +32,9 @@ int performXMLCheck(int informIfNoError) {
 
     clearErrors(hCurrentEditView);
 
+    // TODO: Memory allocation vulnerability - potential null pointer dereference
+    // Missing null pointer check after allocation can cause crashes. Should check
+    // if allocation succeeds before using the pointer and handle allocation failure.
     size_t currentLength = (size_t) ::SendMessage(hCurrentEditView, SCI_GETLENGTH, 0, 0);
 
     char* data = new char[currentLength + sizeof(char)];
@@ -99,6 +102,9 @@ void XMLValidation(int informIfNoError) {
 
     clearErrors(hCurrentEditView);
 
+    // TODO: Memory allocation vulnerability - potential null pointer dereference
+    // Missing null pointer check after allocation can cause crashes. Should check
+    // if allocation succeeds before using the pointer and handle allocation failure.
     size_t currentLength = (size_t) ::SendMessage(hCurrentEditView, SCI_GETLENGTH, 0, 0);
 
     char* data = new char[currentLength + sizeof(char)];
