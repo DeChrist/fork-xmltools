@@ -6,6 +6,9 @@
 #include "PluginInterface.h"
 #include "Report.h"
 #include "menuCmdID.h"
+#include <vector>
+#include <limits>
+#include <memory>
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -20,6 +23,17 @@ static char THIS_FILE[]=__FILE__;
 const int MAX_BUFFER = 4096;
 std::wstring currentLog;
 UniMode currentEncoding = UniMode::uniEnd;
+
+namespace {
+template<typename T>
+bool checked_mul(T a, T b, T& result) {
+    if (a != 0 && b > std::numeric_limits<T>::max() / a) {
+        return false;
+    }
+    result = a * b;
+    return true;
+}
+}
 
 // ------------------------------------------------------------------------------------------------
 
@@ -340,12 +354,17 @@ bool Report::ends_with(std::string const& text, std::string const& suffix) {
 }
 
 std::string Report::narrow(const std::wstring& ws) {
-    size_t l = 4 * ws.length();
-    char* tmp = new char[l];
-    wcstombs(tmp, ws.c_str(), l);
-    std::string res(tmp);
-    delete[] tmp;
-    return res;
+    size_t len = ws.length();
+    size_t bufLen;
+    if (!checked_mul(len + 1, static_cast<size_t>(4), bufLen)) {
+        return {};
+    }
+    std::vector<char> tmp(bufLen);
+    size_t conv = wcstombs(tmp.data(), ws.c_str(), bufLen);
+    if (conv == static_cast<size_t>(-1)) {
+        return {};
+    }
+    return std::string(tmp.data());
 }
 
 std::wstring Report::widen(const char* s) {
@@ -404,45 +423,75 @@ std::wstring Report::wtrim(const std::wstring& s) {
 }
 
 void Report::char2wchar(const char* s, size_t size, CComBSTR& dest) {
-    wchar_t* m_str = SysAllocStringLen(NULL, (UINT) size + 1);
-    mbstowcs(m_str, s, _TRUNCATE);
+    dest.Empty();
+    if (!s) return;
+    if (size > static_cast<size_t>(std::numeric_limits<UINT>::max() - 1)) {
+        return;
+    }
+    UINT allocSize = static_cast<UINT>(size + 1);
+    BSTR m_str = SysAllocStringLen(NULL, allocSize);
+    if (!m_str) {
+        return;
+    }
+#if defined(_MSC_VER)
+    size_t converted = 0;
+    mbstowcs_s(&converted, m_str, allocSize, s, size);
+#else
+    mbstowcs(m_str, s, allocSize);
+#endif
     dest.Attach(m_str);
 }
 
 wchar_t* Report::char2wchar(const char* s) {
-    size_t origsize = strlen(s) + 1;
-    wchar_t* ws = new wchar_t[origsize];
-    mbstowcs(ws, s, _TRUNCATE);
-    return ws;
+    if (!s) return nullptr;
+    size_t origsize = strlen(s);
+    if (origsize > std::numeric_limits<size_t>::max() - 1) return nullptr;
+    size_t allocSize = origsize + 1;
+    std::unique_ptr<wchar_t[]> ws(new (std::nothrow) wchar_t[allocSize]());
+    if (!ws) return nullptr;
+    size_t conv = mbstowcs(ws.get(), s, allocSize);
+    if (conv == static_cast<size_t>(-1)) return nullptr;
+    return ws.release();
 }
 
 char* Report::wchar2char(const wchar_t* ws) {
-    size_t origsize = wcslen(ws) + 1;
-    char* s = new char[origsize];
-    wcstombs(s, ws, _TRUNCATE);
-    return s;
+    if (!ws) return nullptr;
+    size_t origsize = wcslen(ws);
+    if (origsize > std::numeric_limits<size_t>::max() - 1) return nullptr;
+    size_t allocSize = origsize + 1;
+    std::unique_ptr<char[]> s(new (std::nothrow) char[allocSize]());
+    if (!s) return nullptr;
+    size_t conv = wcstombs(s.get(), ws, allocSize);
+    if (conv == static_cast<size_t>(-1)) return nullptr;
+    return s.release();
 }
 
 std::wstring Report::s2ws(const std::string& s) {
-    int len;
-    int slength = (int)s.length() + 1;
-    len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, 0, 0);
-    wchar_t* buf = new wchar_t[len];
-    MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf, len);
-    std::wstring r(buf);
-    delete[] buf;
-    return r;
+    if (s.size() > static_cast<size_t>(std::numeric_limits<int>::max() - 1)) {
+        return {};
+    }
+    int slength = static_cast<int>(s.size() + 1);
+    int len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, nullptr, 0);
+    if (len <= 0) return {};
+    std::vector<wchar_t> buf(len);
+    if (MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf.data(), len) == 0) {
+        return {};
+    }
+    return std::wstring(buf.data());
 }
 
 std::string Report::ws2s(const std::wstring& s) {
-    int len;
-    int slength = (int)s.length() + 1;
-    len = WideCharToMultiByte(CP_ACP, 0, s.c_str(), slength, 0, 0, 0, 0);
-    char* buf = new char[len];
-    WideCharToMultiByte(CP_ACP, 0, s.c_str(), slength, buf, len, 0, 0);
-    std::string r(buf);
-    delete[] buf;
-    return r;
+    if (s.size() > static_cast<size_t>(std::numeric_limits<int>::max() - 1)) {
+        return {};
+    }
+    int slength = static_cast<int>(s.size() + 1);
+    int len = WideCharToMultiByte(CP_ACP, 0, s.c_str(), slength, nullptr, 0, 0, 0);
+    if (len <= 0) return {};
+    std::vector<char> buf(len);
+    if (WideCharToMultiByte(CP_ACP, 0, s.c_str(), slength, buf.data(), len, 0, 0) == 0) {
+        return {};
+    }
+    return std::string(buf.data());
 }
 
 std::string Report::BSTRtoUTF8(BSTR bstr) {
@@ -510,10 +559,11 @@ std::string Report::castChar(std::wstring text, UniMode encoding) {
             break;
     }
 
-    return NULL;
+    return {};
 }
 
 wchar_t* Report::castChar(const char* orig, UniMode encoding /*= uniEnd*/) {
+    if (!orig) return nullptr;
     UniMode enc = encoding;
     /* @V3
     if (encoding == uniEnd) {
@@ -524,16 +574,27 @@ wchar_t* Report::castChar(const char* orig, UniMode encoding /*= uniEnd*/) {
         return Report::char2wchar(orig);
     }
     else {
-        size_t osize = strlen(orig),
-            wsize = 4 * (osize + 1);
-        wchar_t* wbuffer = new wchar_t[wsize];
-        memset(wbuffer, '\0', wsize);
-        Report::UCS2FromUTF8(orig, static_cast<unsigned int>(osize + 1), wbuffer, static_cast<unsigned int>(wsize));
-        return wbuffer;
+        size_t osize = strlen(orig);
+        size_t wsize;
+        if (!checked_mul(osize + 1, static_cast<size_t>(4), wsize)) {
+            return nullptr;
+        }
+        if (osize + 1 > std::numeric_limits<unsigned int>::max() ||
+            wsize > std::numeric_limits<unsigned int>::max()) {
+            return nullptr;
+        }
+        std::unique_ptr<wchar_t[]> wbuffer(new (std::nothrow) wchar_t[wsize]());
+        if (!wbuffer) return nullptr;
+        Report::UCS2FromUTF8(orig,
+                             static_cast<unsigned int>(osize + 1),
+                             wbuffer.get(),
+                             static_cast<unsigned int>(wsize));
+        return wbuffer.release();
     }
 }
 
 char* Report::castWChar(const wchar_t* orig, UniMode encoding /*= uniEnd*/) {
+    if (!orig) return nullptr;
     UniMode enc = encoding;
     /* @V3
     if (encoding == uniEnd) {
@@ -544,12 +605,22 @@ char* Report::castWChar(const wchar_t* orig, UniMode encoding /*= uniEnd*/) {
         return Report::wchar2char(orig);
     }
     else {
-        size_t osize = wcslen(orig),
-            size = 4 * (osize + 1);
-        char* buffer = new char[size];
-        memset(buffer, '\0', size);
-        Report::UTF8FromUCS2(orig, static_cast<unsigned int>(osize + 1), buffer, static_cast<unsigned int>(size));
-        return buffer;
+        size_t osize = wcslen(orig);
+        size_t size;
+        if (!checked_mul(osize + 1, static_cast<size_t>(4), size)) {
+            return nullptr;
+        }
+        if (osize + 1 > std::numeric_limits<unsigned int>::max() ||
+            size > std::numeric_limits<unsigned int>::max()) {
+            return nullptr;
+        }
+        std::unique_ptr<char[]> buffer(new (std::nothrow) char[size]());
+        if (!buffer) return nullptr;
+        Report::UTF8FromUCS2(orig,
+                             static_cast<unsigned int>(osize + 1),
+                             buffer.get(),
+                             static_cast<unsigned int>(size));
+        return buffer.release();
     }
 }
 
